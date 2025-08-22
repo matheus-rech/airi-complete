@@ -3,12 +3,20 @@ const http = require('http');
 const WebSocket = require('ws');
 const cors = require('cors');
 const path = require('path');
+const { SupabaseManager } = require('./supabase-config.js');
 
 // Load environment variables
 require('dotenv').config();
 
 const app = express();
 const server = http.createServer(app);
+
+// Initialize Supabase
+const supabaseManager = new SupabaseManager();
+
+// Demo user for development
+const DEMO_USER_ID = 'demo-user-123';
+const DEMO_CONVERSATION_ID = 'demo-conversation-456';
 
 // Middleware
 app.use(cors({
@@ -26,6 +34,24 @@ const wss = new WebSocket.Server({
 console.log('🚀 AIRI Backend Server Starting...');
 console.log('🔑 OpenAI API Key:', process.env.OPENAI_API_KEY ? 'Configured ✅' : 'Missing ❌');
 console.log('🔑 Gemini API Key:', process.env.GEMINI_API_KEY ? 'Configured ✅' : 'Missing ❌');
+console.log('🗄️ Supabase URL:', process.env.SUPABASE_URL ? 'Configured ✅' : 'Using demo mode');
+
+// Initialize database
+supabaseManager.initializeTables().then(result => {
+  if (result.success) {
+    console.log('🗄️ Database initialized successfully');
+  } else {
+    console.log('⚠️ Database initialization skipped (using demo mode)');
+  }
+});
+
+// Initialize demo user and conversation
+setTimeout(async () => {
+  const memoryStats = await supabaseManager.getMemoryStats(DEMO_USER_ID);
+  if (memoryStats.success) {
+    console.log('📊 Memory stats loaded:', memoryStats.stats);
+  }
+}, 1000);
 
 // WebSocket connection handling
 wss.on('connection', (ws, req) => {
@@ -101,8 +127,59 @@ async function handleTextInput(ws, data) {
   const { text } = data;
   
   try {
-    // Simulate AI response (replace with actual OpenAI/Gemini call)
+    // Save user message to Supabase
+    const userMessage = await supabaseManager.saveMessage(
+      DEMO_CONVERSATION_ID, 
+      'user', 
+      text, 
+      'text',
+      { timestamp: Date.now() }
+    );
+    
+    if (userMessage.success) {
+      console.log('💾 User message saved to database');
+    }
+    
+    // Save to memory system
+    await supabaseManager.saveMemory(
+      DEMO_USER_ID,
+      DEMO_CONVERSATION_ID,
+      `User said: ${text}`,
+      'short_term',
+      0.6
+    );
+    
+    // Generate AI response
     const response = await generateAIResponse(text);
+    
+    // Save AI response to Supabase
+    const aiMessage = await supabaseManager.saveMessage(
+      DEMO_CONVERSATION_ID,
+      'airi',
+      response,
+      'text',
+      { 
+        timestamp: Date.now(),
+        provider: 'openai',
+        model: 'gpt-4'
+      }
+    );
+    
+    if (aiMessage.success) {
+      console.log('💾 AI response saved to database');
+    }
+    
+    // Save AI response to memory
+    await supabaseManager.saveMemory(
+      DEMO_USER_ID,
+      DEMO_CONVERSATION_ID,
+      `AIRI responded: ${response}`,
+      'short_term',
+      0.7
+    );
+    
+    // Get updated memory stats
+    const memoryStats = await supabaseManager.getMemoryStats(DEMO_USER_ID);
     
     ws.send(JSON.stringify({
       type: 'ai_response',
@@ -111,7 +188,8 @@ async function handleTextInput(ws, data) {
         timestamp: Date.now(),
         metadata: {
           provider: 'openai',
-          model: 'gpt-4'
+          model: 'gpt-4',
+          memoryStats: memoryStats.success ? memoryStats.stats : null
         }
       }
     }));

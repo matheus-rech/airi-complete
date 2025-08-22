@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge.jsx'
 import { Separator } from '@/components/ui/separator.jsx'
 import { ScrollArea } from '@/components/ui/scroll-area.jsx'
+import Live2DCharacter from './components/Live2DCharacter.jsx'
 import { 
   Mic, 
   MicOff, 
@@ -18,7 +19,9 @@ import {
   Bot,
   User,
   Heart,
-  Sparkles
+  Sparkles,
+  Video,
+  VideoOff
 } from 'lucide-react'
 import './App.css'
 
@@ -32,6 +35,12 @@ function App() {
   const [connectionAttempts, setConnectionAttempts] = useState(0)
   const [aiProvider, setAiProvider] = useState('openai')
   const [memoryStats, setMemoryStats] = useState({ shortTerm: 0, longTerm: 0 })
+  
+  // Character state
+  const [isCharacterVisible, setIsCharacterVisible] = useState(true)
+  const [characterExpression, setCharacterExpression] = useState('neutral')
+  const [isListening, setIsListening] = useState(false)
+  const [isSpeaking, setIsSpeaking] = useState(false)
   
   // Refs
   const wsRef = useRef(null)
@@ -297,8 +306,8 @@ function App() {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-6 max-w-6xl">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="container mx-auto px-4 py-6 max-w-7xl">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Sidebar */}
           <div className="lg:col-span-1 space-y-4">
             {/* Memory Stats */}
@@ -378,6 +387,37 @@ function App() {
                     {isConnected ? "CONNECTED" : "DISCONNECTED"}
                   </Badge>
                 </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">3D Character</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsCharacterVisible(!isCharacterVisible)}
+                    className="h-6 px-2"
+                  >
+                    {isCharacterVisible ? <Video className="w-3 h-3" /> : <VideoOff className="w-3 h-3" />}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Character Display */}
+          <div className="lg:col-span-1">
+            <Card className="bg-black/40 border-white/20 backdrop-blur-sm h-[600px]">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center space-x-2">
+                  <Heart className="w-5 h-5 text-pink-400" />
+                  <span>AIRI</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 p-2">
+                <Live2DCharacter
+                  isVisible={isCharacterVisible}
+                  expression={characterExpression}
+                  isListening={isListening}
+                  isSpeaking={isSpeaking}
+                />
               </CardContent>
             </Card>
           </div>
